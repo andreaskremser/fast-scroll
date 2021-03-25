@@ -86,6 +86,7 @@
       (setq fast-scroll--fn-called-in-buffer nil)
       (setq mode-line-format fast-scroll-mode-line-original)
       (font-lock-mode 1)
+      (display-line-numbers-mode 1)
       (run-hooks 'fast-scroll-end-hook)
       (setq fast-scroll-throttling-p nil)
       (setq fast-scroll-count 0))))
@@ -112,6 +113,7 @@ a new buffer name (or found the existing buffer name to match the current one)."
       (progn
         (setq mode-line-format (fast-scroll-default-mode-line))
         (font-lock-mode 0)
+        (display-line-numbers-mode 0)
         (run-hooks 'fast-scroll-start-hook)
         (ignore-errors (apply f r))))
     (run-at-time fast-scroll-throttle nil #'fast-scroll-end)
@@ -157,6 +159,7 @@ a new buffer name (or found the existing buffer name to match the current one)."
   (advice-add #'scroll-down-command :around #'fast-scroll-run-fn-minimally)
   (advice-add #'evil-scroll-up :around #'fast-scroll-run-fn-minimally)
   (advice-add #'evil-scroll-down :around #'fast-scroll-run-fn-minimally))
+  (advice-add #'mwheel-scroll :around #'fast-scroll-run-fn-minimally)
 
 (defun fast-scroll-unload-function ()
   "Remove advice added by `fast-scroll-advice-scroll-functions'.
@@ -166,6 +169,7 @@ Note this function's name implies compatibility with `unload-feature'."
   (advice-remove #'scroll-down-command #'fast-scroll-run-fn-minimally)
   (advice-remove #'evil-scroll-up #'fast-scroll-run-fn-minimally)
   (advice-remove #'evil-scroll-down #'fast-scroll-run-fn-minimally)
+  (advice-remove #'mwheel-scroll #'fast-scroll-run-fn-minimally)
   nil)
 
 ;;;###autoload
