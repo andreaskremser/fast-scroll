@@ -50,6 +50,30 @@
 (defvar fast-scroll-start-hook '())
 (defvar fast-scroll-end-hook '())
 
+(defvar fast-scroll-disable-modes '(font-lock-mode display-line-numbers-mode))
+
+
+;; internal use only: remember which modes to toggle
+(defvar fast-scroll-stored-modes (make-hash-table :test 'equal))
+
+(defun fast-scroll--disable-modes ()
+  (mapc (lambda (x)
+          (when (and (boundp x) x)
+          (puthash x  (symbol-value x)
+                   fast-scroll-stored-modes))
+          (funcall x 0)
+          )
+          fast-scroll-disable-modes)
+  )
+
+(defun fast-scroll--re-enable-modes ()
+  (maphash (lambda (k v)
+             (when v (funcall k v))
+             (puthash k 0 fast-scroll-stored-modes)
+             ) fast-scroll-stored-modes)
+  )
+
+
 ;; This is more for internal use only to resolve timing issues with
 ;; flip-flopping between buffers quickly.
 ;; Initial idea was a single store to restore settings on, but that
@@ -85,8 +109,9 @@
     (with-current-buffer buf
       (setq fast-scroll--fn-called-in-buffer nil)
       (setq mode-line-format fast-scroll-mode-line-original)
-      (font-lock-mode 1)
-      (display-line-numbers-mode 1)
+      ;; (font-lock-mode 1)
+      ;; (display-line-numbers-mode 1)
+      (fast-scroll--re-enable-modes)
       (run-hooks 'fast-scroll-end-hook)
       (setq fast-scroll-throttling-p nil)
       (setq fast-scroll-count 0))))
@@ -112,8 +137,11 @@ a new buffer name (or found the existing buffer name to match the current one)."
         (ignore-errors (apply f r))
       (progn
         (setq mode-line-format (fast-scroll-default-mode-line))
-        (font-lock-mode 0)
-        (display-line-numbers-mode 0)
+
+        ;; (font-lock-mode 0)
+        ;; (display-line-numbers-mode 0)
+        (fast-scroll--disable-modes)
+
         (run-hooks 'fast-scroll-start-hook)
         (ignore-errors (apply f r))))
     (run-at-time fast-scroll-throttle nil #'fast-scroll-end)
