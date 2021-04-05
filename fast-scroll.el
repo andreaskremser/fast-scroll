@@ -50,28 +50,41 @@
 (defvar fast-scroll-start-hook '())
 (defvar fast-scroll-end-hook '())
 
-(defvar fast-scroll-disable-modes '(font-lock-mode display-line-numbers-mode))
+(defvar fast-scroll-disable-modes '(font-lock-mode display-line-numbers-mode flyspell-mode flycheck-mode))
+(defvar fast-scroll-override-modeline nil)
 
 
 ;; internal use only: remember which modes to toggle
-(defvar fast-scroll-stored-modes (make-hash-table :test 'equal))
+(make-variable-buffer-local (defvar fast-scroll-stored-modes nil))
+
+
+
+;;(make-variable-buffer-local 'fast-scroll-stored-modes)
+;;(set fast-scroll-stored-modes (make-hash-table :test 'equal))
 
 (defun fast-scroll--disable-modes ()
+  (when (not fast-scroll-stored-modes)
+    (setq fast-scroll-stored-modes (make-hash-table :test 'equal)))
   (mapc (lambda (x)
-          (when (and (boundp x) x)
-          (puthash x  (symbol-value x)
-                   fast-scroll-stored-modes))
-          (funcall x 0)
+          (when (and (boundp x) (symbol-value x))
+            (puthash x (symbol-value x)
+                     fast-scroll-stored-modes)
+            (funcall x 0))
           )
-          fast-scroll-disable-modes)
+        fast-scroll-disable-modes)
   )
 
 (defun fast-scroll--re-enable-modes ()
+  (when (not fast-scroll-stored-modes)
+    (setq fast-scroll-stored-modes (make-hash-table :test 'equal)))
   (maphash (lambda (k v)
-             (when v (funcall k v))
-             (puthash k 0 fast-scroll-stored-modes)
-             ) fast-scroll-stored-modes)
+             (when (and k v)
+               (funcall k v)
+               (remhash k fast-scroll-stored-modes)
+               ;; (puthash k 0 fast-scroll-stored-modes))
+             )) fast-scroll-stored-modes)
   )
+
 
 
 ;; This is more for internal use only to resolve timing issues with
@@ -108,9 +121,8 @@
   (when (fast-scroll-end-p)
     (with-current-buffer buf
       (setq fast-scroll--fn-called-in-buffer nil)
-      (setq mode-line-format fast-scroll-mode-line-original)
-      ;; (font-lock-mode 1)
-      ;; (display-line-numbers-mode 1)
+      (when fast-scroll-override-modeline
+        (setq mode-line-format fast-scroll-mode-line-original))
       (fast-scroll--re-enable-modes)
       (run-hooks 'fast-scroll-end-hook)
       (setq fast-scroll-throttling-p nil)
@@ -136,10 +148,8 @@ a new buffer name (or found the existing buffer name to match the current one)."
     (if fast-scroll-throttling-p
         (ignore-errors (apply f r))
       (progn
-        (setq mode-line-format (fast-scroll-default-mode-line))
-
-        ;; (font-lock-mode 0)
-        ;; (display-line-numbers-mode 0)
+        (when fast-scroll-override-modeline
+          (setq mode-line-format (fast-scroll-default-mode-line)))
         (fast-scroll--disable-modes)
 
         (run-hooks 'fast-scroll-start-hook)
